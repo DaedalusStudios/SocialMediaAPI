@@ -10,12 +10,12 @@ const app = express();
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-app.get('/', (req, res) => {
+app.get('/api', (req, res) => {
   res.sendFile(path.join(__dirname, './info.txt'));
 });
 
 // Creates a new user
-app.post('/user/', (req, res) => {
+app.post('/api/user/', (req, res) => {
   Users.create(req.body)
     .then((user) => {
       res.json(user);
@@ -27,7 +27,7 @@ app.post('/user/', (req, res) => {
 });
 
 // Retrieves a user by its _id and populated thought and reaction data
-app.get('/user/:id', (req, res) => {
+app.get('/api/user/:id', (req, res) => {
   Users.findOne({ _id: req.params.id })
   .populate({
     path: 'thoughts',
@@ -50,7 +50,7 @@ app.get('/user/:id', (req, res) => {
 });
 
 // Updates a user by its _id
-app.put('/user/:id', (req, res) => {
+app.put('/api/user/:id', (req, res) => {
   Users.findOneAndUpdate({ _id: req.params.id },
     { $set: req.body },
     { runValidators: true, new: true }
@@ -68,7 +68,7 @@ app.put('/user/:id', (req, res) => {
 });
 
 //Deletes a user by its _id
-app.delete('/user/:id', (req, res) => {
+app.delete('/api/user/:id', (req, res) => {
   Users.findOneAndDelete({ _id: req.params.id })
     .then((user) => {
       if (!user) {
@@ -82,11 +82,27 @@ app.delete('/user/:id', (req, res) => {
     });
 });
 
-// Creates a new thought
-app.post('/thought/', (req, res) => {
+// Creates a new thought, then update it to make sure it refernces the user.
+app.post('/api/thought/', (req, res) => {
   Thoughts.create(req.body)
     .then((thought) => {
-      res.json(thought);
+      // Update the corresponding user document to include the new thought
+      Users.findOneAndUpdate(
+        { _id: thought.userId }, // Find the user by the userId associated with the thought
+        { $push: { thoughts: thought._id } }, // Push the new thought's ID into the user's thoughts array
+        { new: true } // Return the updated user document
+      )
+        .then((user) => {
+          // Check if the user exists
+          if (!user) {
+            res.status(404).json({ message: 'No user found with this id!' });
+            return;
+          }
+          res.json(thought); // Return the created thought
+        })
+        .catch((err) => {
+          res.json(err);
+        });
     })
     .catch((err) => {
       res.json(err);
@@ -94,7 +110,7 @@ app.post('/thought/', (req, res) => {
 });
 
 // reads a thought by id
-app.get('/thought/:id', (req, res) => {
+app.get('/api/thought/:id', (req, res) => {
   Thoughts.findOne({ _id: req.params.id })
     .then((thought) => {
       if (!thought) {
@@ -109,7 +125,7 @@ app.get('/thought/:id', (req, res) => {
 });
 
 // Updates a thought by its _id
-app.put('/thought/:id', (req, res) => {
+app.put('/api/thought/:id', (req, res) => {
   Thoughts.findOneAndUpdate({ _id: req.params.id },
     { $set: req.body },
     { runValidators: true, new: true }
@@ -128,7 +144,7 @@ app.put('/thought/:id', (req, res) => {
 });
 
 // Deletes a thought by its _id
-app.delete('/thought/:id', (req, res) => {
+app.delete('/api/thought/:id', (req, res) => {
   Thoughts.findOneAndDelete({ _id: req.params.id })
     .then((thought) => {
       if (!thought) {
@@ -143,30 +159,36 @@ app.delete('/thought/:id', (req, res) => {
 });
 
 
-// Creates a new reaction
-app.post('/reaction/', (req, res) => {
+// Creates a new reaction and updates the corresponding thought document to include the new reaction
+app.post('/api/thought/:thoughtId/reaction/', (req, res) => {
+  const thoughtId = req.params.thoughtId;
+  req.body.thoughtId = thoughtId;
   Reactions.create(req.body)
     .then((reaction) => {
       Thoughts.findOneAndUpdate(
-        { _id: req.body.thoughtId },
-        { $push: { reactions: reaction._id } },
-        { new: true }
+        { _id: thoughtId }, 
+        { $push: { reactions: reaction._id } }, 
+        { new: true } 
       )
         .then((thought) => {
+          // Check if the thought exists
           if (!thought) {
             res.status(404).json({ message: 'No thought found with this id!' });
             return;
           }
-          res.json(reaction);
+          res.json(reaction); // Return the created reaction
         })
         .catch((err) => {
           res.json(err);
         });
     })
+    .catch((err) => {
+      res.json(err);
+    });
 });
 
 // Deletes a reaction by its _id
-app.delete('/reaction/:id', (req, res) => {
+app.delete('/api/reaction/:id', (req, res) => {
   Reactions.findOneAndDelete({ _id: req.params.id })
     .then((reaction) => {
       if (!reaction) {
@@ -181,7 +203,7 @@ app.delete('/reaction/:id', (req, res) => {
   });
 
 // Retrieves all users
-app.get('/users/', (req, res) => {
+app.get('/api/users/', (req, res) => {
   Users.find({})
     .then((users) => {
       res.json(users);
@@ -192,7 +214,7 @@ app.get('/users/', (req, res) => {
 });
 
 // Retrieves all thoughts
-app.get('/thoughts/', (req, res) => {
+app.get('/api/thoughts/', (req, res) => {
   Thoughts.find({})
     .then((thoughts) => {
       res.json(thoughts);
@@ -203,7 +225,43 @@ app.get('/thoughts/', (req, res) => {
 });
 
 
+// Add friends to a user's friend list
+app.post('/api/user/:userId/friends/:friendId', (req, res) => {
+  Users.findOneAndUpdate(
+    { _id: req.params.userId },
+    { $addToSet: { friends: req.params.friendId } },
+    { new: true }
+  )
+    .then((user) => {
+      if (!user) {
+        res.status(404).json({ message: 'No user found with this id!' });
+        return;
+      }
+      res.json(user);
+    })
+    .catch((err) => {
+      res.json(err);
+    });
+});
 
+// Deletes a friend from a user's friend list
+app.delete('/api/user/:userId/friends/:friendId', (req, res) => {
+  Users.findOneAndUpdate(
+    { _id: req.params.userId },
+    { $pull: { friends: req.params.friendId } },
+    { new: true }
+  )
+    .then((user) => {
+      if (!user) {
+        res.status(404).json({ message: 'No user found with this id!' });
+        return;
+      }
+      res.json(user);
+    })
+    .catch((err) => {
+      res.json(err);
+    });
+});
 
 
 db.once('open', () => {

@@ -24,6 +24,17 @@ const thoughtsSchema = new mongoose.Schema({
     ],
 });
 
+thoughtsSchema.pre('findOneAndDelete', { document: true }, async function (next) {
+    const thought = this;
+    try {
+      // Delete all reactions associated with the thought
+      await Reactions.deleteMany({ thoughtId: thought._id });
+      next();
+    } catch (error) {
+      next(error);
+    }
+  });
+
 const Thoughts = mongoose.model('Thoughts', thoughtsSchema);
 
 module.exports = Thoughts;

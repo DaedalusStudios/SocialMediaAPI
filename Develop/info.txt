@@ -23,3 +23,17 @@ Thoughts:
     GET to /thoughts/ will list all thoughts
 
     POST to /thought/ will create a new thought
+
+    PUT to /thought/ID will updatea a thought
+
+    DELETE to /thought/ID will delete a thought
+
+Reactions:
+    POST to /reaction/ will create a new reaction
+
+    DELETE to /reaction/ID will delete a reaction
+
+friends
+    POST to /user/USERID/friends/FRIENDID will create a new friend
+
+    DELETE to /user/USERID/friends/FRIENDID will delete a friend
