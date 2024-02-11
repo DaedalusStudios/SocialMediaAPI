@@ -1,0 +1,25 @@
+General:
+    GET to / will give you this document.
+
+Users:
+    GET to /users/ will list all users
+
+    POST to /user/ will add a user and return the ID
+        {
+            "name": "Name",
+            "email": "Email@Email.com"
+        }
+
+
+    PUT to /user/ID will update a user
+        {
+            "name": "New Name",
+            "email": "New Email"
+        }
+
+    DELETE to /user/ID will delete a user
+
+Thoughts:
+    GET to /thoughts/ will list all thoughts
+
+    POST to /thought/ will create a new thought
